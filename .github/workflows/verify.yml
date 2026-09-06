@@ -1,0 +1,18 @@
+name: verify
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  gcc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test
+        run: make clean all test sanitizers evidence
+      - name: Verify retained evidence is reproducible
+        run: git diff --exit-code -- evidence/pair2-software-sim/events.csv evidence/pair2-software-sim/test-results.txt

@@ -1,8 +1,10 @@
 # Multi-Node Controller — V0.8.2 Preflight Engineering Gate
 
-**Status:** software verification passed; live PX4/Gazebo/ROS 2 integration not yet executed; not flight-ready.
+**Status:** historical preflight record; its source package was not committed and its test counts cannot be reproduced from this repository. Live PX4/Gazebo/ROS 2 integration has not been executed; not flight-ready.
 
-## Verified baseline
+> Repository audit, 2026-09-06: the commit carrying this document contained no controller source, test source, build files, launcher or evidence artifacts. The 37 C and 19 Python results below are therefore prior reported results, not independently reproducible evidence. The new repository-native pair-2 state-machine baseline is documented in `PAIR2_SOFTWARE_SIMULATION.md`.
+
+## Previously reported baseline (source package unavailable here)
 
 - 37/37 C tests pass under GCC.
 - 37/37 C tests pass under Clang.

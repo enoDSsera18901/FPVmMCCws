@@ -1,0 +1,7 @@
+time_ms,event,node_1_state,node_2_state,task_101_owner,node_1_intent,node_2_intent
+0,pair_admitted_and_mission_assigned,active,active,1,enabled,enabled
+700,node_1_link_degraded,degraded,active,1,suppressed,enabled
+1100,node_1_lost_task_reassigned,lost,active,2,suppressed,enabled
+1200,node_1_quarantined,quarantined,active,2,suppressed,enabled
+1260,node_1_recovered_unassigned,active,active,2,suppressed,enabled
+1270,task_101_reconfigured_to_node_1,active,active,1,enabled,enabled
