@@ -1,0 +1,32 @@
+{
+  "gate": "pair_2",
+  "node_ids": [1, 2],
+  "px4_commit": null,
+  "px4_msgs_commit": null,
+  "ros2_distribution": "jazzy",
+  "start_timestamp_utc": null,
+  "end_timestamp_utc": null,
+  "max_state_age_ms": null,
+  "mean_state_age_ms": null,
+  "max_jitter_ms": null,
+  "mean_jitter_ms": null,
+  "observed_packet_loss_pct": null,
+  "fault_detection_latency_ms": null,
+  "recovery_latency_ms": null,
+  "peak_cpu_pct_by_process": {},
+  "peak_ram_mb_by_process": {},
+  "criteria": {
+    "two_node_mission_completed": null,
+    "identity_unique": null,
+    "no_cross_namespace_state": null,
+    "supervisor_gate_enforced": null,
+    "bridge_does_not_arm_or_change_mode": null,
+    "communications_fault_injected": null,
+    "fault_isolated_to_selected_node": null,
+    "loss_of_node_detected": null,
+    "restart_quarantine_enforced": null,
+    "reassignment_or_reconfiguration_completed": null,
+    "configured_recovery_window_enforced": null,
+    "operator_px4_authority_retained": null
+  }
+}
