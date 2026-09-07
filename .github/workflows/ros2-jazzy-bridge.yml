@@ -93,11 +93,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          WORKSPACE="$(pwd)/integration/ros2_ws"
+          mkdir -p evidence/ros2-jazzy-bridge
           set +u
           source /opt/ros/jazzy/setup.bash
-          source integration/ros2_ws/install/setup.bash
+          source "${WORKSPACE}/install/local_setup.bash"
           set -u
-          mkdir -p evidence/ros2-jazzy-bridge
+
+          {
+            echo "AMENT_PREFIX_PATH=${AMENT_PREFIX_PATH:-}"
+            echo "CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH:-}"
+            echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-}"
+            echo "coordination_msgs=$(ros2 pkg prefix coordination_msgs)"
+            echo "px4_msgs=$(ros2 pkg prefix px4_msgs)"
+            echo "coordination_px4_bridge=$(ros2 pkg prefix coordination_px4_bridge)"
+          } | tee evidence/ros2-jazzy-bridge/overlay.txt
+          test "$(ros2 pkg prefix coordination_px4_bridge)" = "${WORKSPACE}/install/coordination_px4_bridge"
 
           ros2 run coordination_px4_bridge coordination_px4_bridge \
             --ros-args -r __node:=coordination_px4_bridge_1 \
