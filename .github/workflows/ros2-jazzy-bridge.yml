@@ -56,10 +56,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p evidence/ros2-jazzy-bridge
+          set +u
           source /opt/ros/jazzy/setup.bash
+          set -u
           test "$(git -C integration/ros2_ws/src/px4_msgs rev-parse HEAD)" = "${PX4_MSGS_SHA}"
           test "${ROS_DISTRO}" = "jazzy"
-          mkdir -p evidence/ros2-jazzy-bridge
           {
             echo "runner=$(grep '^PRETTY_NAME=' /etc/os-release | cut -d= -f2-)"
             echo "ros_distro=${ROS_DISTRO}"
@@ -77,7 +79,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          set +u
           source /opt/ros/jazzy/setup.bash
+          set -u
           cd integration/ros2_ws
           colcon build \
             --event-handlers console_direct+ \
@@ -89,8 +93,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          set +u
           source /opt/ros/jazzy/setup.bash
           source integration/ros2_ws/install/setup.bash
+          set -u
           mkdir -p evidence/ros2-jazzy-bridge
 
           ros2 run coordination_px4_bridge coordination_px4_bridge \
