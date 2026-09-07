@@ -1,0 +1,107 @@
+name: ROS 2 Jazzy / PX4 v1.17 bridge build
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ros2-jazzy-v117-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-bridge:
+    runs-on: ubuntu-24.04
+    env:
+      ROS_DISTRO: jazzy
+      PX4_MSGS_COMMIT: 86d8239e962f6939e05c3737784f60c02fa884db
+    steps:
+      - name: Checkout coordination repository
+        uses: actions/checkout@v4
+
+      - name: Setup ROS 2 Jazzy
+        uses: ros-tooling/setup-ros@v0.7
+        with:
+          required-ros-distributions: jazzy
+
+      - name: Checkout pinned px4_msgs v1.17
+        uses: actions/checkout@v4
+        with:
+          repository: PX4/px4_msgs
+          ref: 86d8239e962f6939e05c3737784f60c02fa884db
+          path: integration/ros2_ws/src/px4_msgs
+          fetch-depth: 1
+
+      - name: Verify frozen upstream identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git -C integration/ros2_ws/src/px4_msgs rev-parse HEAD)"
+          test "$actual" = "$PX4_MSGS_COMMIT"
+          python3 tools/verify_pair2_identity.py
+          mkdir -p evidence/ros2-jazzy-v117
+          {
+            echo "repository_commit=${GITHUB_SHA}"
+            echo "runner_os=$(grep '^PRETTY_NAME=' /etc/os-release | cut -d= -f2-)"
+            echo "ros_distro=${ROS_DISTRO}"
+            echo "px4_msgs=${actual}"
+          } | tee evidence/ros2-jazzy-v117/provenance.txt
+
+      - name: Resolve ROS dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          source /opt/ros/jazzy/setup.bash
+          rosdep install \
+            --from-paths integration/ros2_ws/src \
+            --ignore-src \
+            --rosdistro jazzy \
+            -r -y
+
+      - name: Build coordination bridge against pinned px4_msgs
+        shell: bash
+        run: |
+          set -euo pipefail
+          source /opt/ros/jazzy/setup.bash
+          cd integration/ros2_ws
+          colcon build \
+            --symlink-install \
+            --event-handlers console_direct+ \
+            --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            2>&1 | tee ../../evidence/ros2-jazzy-v117/colcon-build.log
+
+      - name: Run package tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          source /opt/ros/jazzy/setup.bash
+          cd integration/ros2_ws
+          source install/setup.bash
+          colcon test --event-handlers console_direct+ \
+            2>&1 | tee ../../evidence/ros2-jazzy-v117/colcon-test.log
+          colcon test-result --verbose \
+            2>&1 | tee ../../evidence/ros2-jazzy-v117/colcon-test-result.log
+
+      - name: Verify installed bridge executable
+        shell: bash
+        run: |
+          set -euo pipefail
+          source /opt/ros/jazzy/setup.bash
+          source integration/ros2_ws/install/setup.bash
+          ros2 pkg executables coordination_px4_bridge | tee evidence/ros2-jazzy-v117/executables.txt
+          grep -q '^coordination_px4_bridge ' evidence/ros2-jazzy-v117/executables.txt
+
+      - name: Retain ROS 2 build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ros2-jazzy-px4-v117-${{ github.sha }}
+          path: |
+            evidence/ros2-jazzy-v117
+            integration/ros2_ws/log
+          if-no-files-found: error
+          retention-days: 14
