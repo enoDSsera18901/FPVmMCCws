@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "gate": "pair-2",
+  "vehicles": [
+    {"node_id": 1, "px4_instance": 0, "mav_sys_id": 1, "uxrce_dds_key": 1, "dds_namespace": "coord_001"},
+    {"node_id": 2, "px4_instance": 1, "mav_sys_id": 2, "uxrce_dds_key": 2, "dds_namespace": "coord_002"}
+  ],
+  "safety_boundary": {
+    "arming_authority": false,
+    "flight_mode_authority": false,
+    "trajectory_output_requires_supervisor_gate": true
+  }
+}
