@@ -1,0 +1,53 @@
+name: Upstream PX4 v1.17 contract
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  bridge-message-contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout coordination contract repo
+        uses: actions/checkout@v4
+      - name: Checkout pinned PX4 v1.17.0 commit
+        uses: actions/checkout@v4
+        with:
+          repository: PX4/PX4-Autopilot
+          ref: d6f12ad1c4f70ad3230afd7d86e971421e02fef4
+          path: upstream/PX4-Autopilot
+          fetch-depth: 1
+          submodules: false
+      - name: Checkout pinned px4_msgs v1.17.0 commit
+        uses: actions/checkout@v4
+        with:
+          repository: PX4/px4_msgs
+          ref: 86d8239e962f6939e05c3737784f60c02fa884db
+          path: upstream/px4_msgs
+          fetch-depth: 1
+      - name: Verify exact upstream provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C upstream/PX4-Autopilot rev-parse HEAD)" = "d6f12ad1c4f70ad3230afd7d86e971421e02fef4"
+          test "$(git -C upstream/px4_msgs rev-parse HEAD)" = "86d8239e962f6939e05c3737784f60c02fa884db"
+          mkdir -p evidence/upstream-v1.17
+          {
+            echo "PX4_Autopilot=$(git -C upstream/PX4-Autopilot rev-parse HEAD)"
+            echo "px4_msgs=$(git -C upstream/px4_msgs rev-parse HEAD)"
+            echo "runner_os=$(grep '^PRETTY_NAME=' /etc/os-release | cut -d= -f2-)"
+          } | tee evidence/upstream-v1.17/provenance.txt
+      - name: Verify bridge-used PX4 message contract
+        run: |
+          python3 tools/verify_px4_contract.py \
+            --px4-msg-dir upstream/PX4-Autopilot/msg \
+            --px4-msgs-dir upstream/px4_msgs/msg \
+            --json evidence/upstream-v1.17/message-contract.json
+          cat evidence/upstream-v1.17/message-contract.json
+      - name: Retain contract evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: px4-v1.17-message-contract
+          path: evidence/upstream-v1.17
+          if-no-files-found: error

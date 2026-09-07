@@ -1,0 +1,5 @@
+uint8 node_id
+uint64 timestamp_us
+bool external_control_requested
+bool permit_intent
+bool operator_override

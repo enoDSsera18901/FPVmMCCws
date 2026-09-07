@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "selected_on": "2026-09-07",
+  "purpose": "first pair-2 live-SITL candidate baseline",
+  "px4": {
+    "repository": "PX4/PX4-Autopilot",
+    "release": "v1.17.0",
+    "commit": "d6f12ad1c4f70ad3230afd7d86e971421e02fef4"
+  },
+  "px4_msgs": {
+    "repository": "PX4/px4_msgs",
+    "release": "v1.17.0",
+    "commit": "86d8239e962f6939e05c3737784f60c02fa884db"
+  },
+  "policy": "Both revisions are immutable inputs to the first pair-2 contract check. Changing either requires a new evidence run."
+}

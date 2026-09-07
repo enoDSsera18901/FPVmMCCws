@@ -1,0 +1,12 @@
+uint8 node_id
+uint64 timestamp_us
+bool position_valid
+bool velocity_valid
+bool yaw_valid
+float32 north_m
+float32 east_m
+float32 down_m
+float32 vn_mps
+float32 ve_mps
+float32 vd_mps
+float32 yaw_rad

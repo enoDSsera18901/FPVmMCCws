@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>coordination_px4_bridge</name>
+  <version>0.8.3</version>
+  <description>ROS 2 transport binding between coordination intent/state and PX4 uXRCE-DDS topics.</description>
+  <maintainer email="maintainer@example.invalid">Coordination Platform</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>px4_msgs</depend>
+  <depend>coordination_msgs</depend>
+</package>
