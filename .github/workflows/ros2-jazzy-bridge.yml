@@ -1,0 +1,163 @@
+name: ROS 2 Jazzy bridge
+
+on:
+  pull_request:
+    paths:
+      - 'integration/ros2_ws/**'
+      - '.github/workflows/ros2-jazzy-bridge.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'integration/ros2_ws/**'
+      - '.github/workflows/ros2-jazzy-bridge.yml'
+
+jobs:
+  build-and-graph-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      ROS_DISTRO: jazzy
+      PX4_MSGS_SHA: 86d8239e962f6939e05c3737784f60c02fa884db
+      ROS_APT_SOURCE_VERSION: 1.2.0
+      ROS_APT_SOURCE_SHA256: 0804d9b13db770eb87019be414cd78378835228ad5fa801fc88758596dd8f7e5
+    steps:
+      - name: Checkout controller repository
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned px4_msgs v1.17.0
+        uses: actions/checkout@v4
+        with:
+          repository: PX4/px4_msgs
+          ref: 86d8239e962f6939e05c3737784f60c02fa884db
+          path: integration/ros2_ws/src/px4_msgs
+          fetch-depth: 1
+
+      - name: Install pinned ROS 2 apt source and Jazzy build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y curl ca-certificates
+          curl -fL \
+            "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.noble_all.deb" \
+            -o /tmp/ros2-apt-source.deb
+          echo "${ROS_APT_SOURCE_SHA256}  /tmp/ros2-apt-source.deb" | sha256sum -c -
+          sudo dpkg -i /tmp/ros2-apt-source.deb
+          sudo apt-get update
+          sudo apt-get install -y \
+            ros-jazzy-ros-base \
+            python3-colcon-common-extensions \
+            python3-rosdep \
+            build-essential
+          sudo rosdep init 2>/dev/null || true
+          rosdep update --rosdistro jazzy
+
+      - name: Verify provenance and install package dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/ros2-jazzy-bridge
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          test "$(git -C integration/ros2_ws/src/px4_msgs rev-parse HEAD)" = "${PX4_MSGS_SHA}"
+          test "${ROS_DISTRO}" = "jazzy"
+          {
+            echo "runner=$(grep '^PRETTY_NAME=' /etc/os-release | cut -d= -f2-)"
+            echo "ros_distro=${ROS_DISTRO}"
+            echo "px4_msgs_sha=$(git -C integration/ros2_ws/src/px4_msgs rev-parse HEAD)"
+            echo "controller_sha=${GITHUB_SHA}"
+            echo "ros_apt_source_version=${ROS_APT_SOURCE_VERSION}"
+          } | tee evidence/ros2-jazzy-bridge/provenance.txt
+          rosdep install \
+            --from-paths integration/ros2_ws/src \
+            --ignore-src \
+            --rosdistro jazzy \
+            -r -y
+
+      - name: Build coordination interfaces and PX4 bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          cd integration/ros2_ws
+          colcon build \
+            --event-handlers console_direct+ \
+            --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            2>&1 | tee ../../evidence/ros2-jazzy-bridge/colcon-build.log
+          test -x install/coordination_px4_bridge/lib/coordination_px4_bridge/coordination_px4_bridge
+
+      - name: Run two-bridge ROS graph smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORKSPACE="$(pwd)/integration/ros2_ws"
+          mkdir -p evidence/ros2-jazzy-bridge
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          source "${WORKSPACE}/install/local_setup.bash"
+          set -u
+
+          {
+            echo "AMENT_PREFIX_PATH=${AMENT_PREFIX_PATH:-}"
+            echo "CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH:-}"
+            echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-}"
+            echo "coordination_msgs=$(ros2 pkg prefix coordination_msgs)"
+            echo "px4_msgs=$(ros2 pkg prefix px4_msgs)"
+            echo "coordination_px4_bridge=$(ros2 pkg prefix coordination_px4_bridge)"
+          } | tee evidence/ros2-jazzy-bridge/overlay.txt
+          test "$(ros2 pkg prefix coordination_px4_bridge)" = "${WORKSPACE}/install/coordination_px4_bridge"
+
+          ros2 run coordination_px4_bridge coordination_px4_bridge \
+            --ros-args -r __node:=coordination_px4_bridge_1 \
+            -p node_id:=1 -p px4_namespace:=coord_001 \
+            > evidence/ros2-jazzy-bridge/bridge-1.log 2>&1 &
+          P1=$!
+          ros2 run coordination_px4_bridge coordination_px4_bridge \
+            --ros-args -r __node:=coordination_px4_bridge_2 \
+            -p node_id:=2 -p px4_namespace:=coord_002 \
+            > evidence/ros2-jazzy-bridge/bridge-2.log 2>&1 &
+          P2=$!
+          cleanup() {
+            kill "$P1" "$P2" 2>/dev/null || true
+            wait "$P1" "$P2" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          ready=0
+          for _ in $(seq 1 15); do
+            ros2 node list | sort > evidence/ros2-jazzy-bridge/nodes.txt || true
+            if grep -qx '/coordination_px4_bridge_1' evidence/ros2-jazzy-bridge/nodes.txt && \
+               grep -qx '/coordination_px4_bridge_2' evidence/ros2-jazzy-bridge/nodes.txt; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" -eq 1
+
+          ros2 topic list | sort | tee evidence/ros2-jazzy-bridge/topics.txt
+          grep -qx '/coord_001/fmu/in/offboard_control_mode' evidence/ros2-jazzy-bridge/topics.txt
+          grep -qx '/coord_001/fmu/in/trajectory_setpoint' evidence/ros2-jazzy-bridge/topics.txt
+          grep -qx '/coord_001/fmu/out/vehicle_local_position' evidence/ros2-jazzy-bridge/topics.txt
+          grep -qx '/coord_002/fmu/in/offboard_control_mode' evidence/ros2-jazzy-bridge/topics.txt
+          grep -qx '/coord_002/fmu/in/trajectory_setpoint' evidence/ros2-jazzy-bridge/topics.txt
+          grep -qx '/coord_002/fmu/out/vehicle_local_position' evidence/ros2-jazzy-bridge/topics.txt
+          grep -qx '/coordination_intent' evidence/ros2-jazzy-bridge/topics.txt
+          grep -qx '/supervisor_gate' evidence/ros2-jazzy-bridge/topics.txt
+          grep -qx '/vehicle_state' evidence/ros2-jazzy-bridge/topics.txt
+
+          ros2 topic info -v /coord_001/fmu/in/offboard_control_mode \
+            > evidence/ros2-jazzy-bridge/coord-001-offboard-topic.txt
+          ros2 topic info -v /coord_002/fmu/in/offboard_control_mode \
+            > evidence/ros2-jazzy-bridge/coord-002-offboard-topic.txt
+
+      - name: Retain ROS 2 bridge evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ros2-jazzy-bridge-evidence
+          path: evidence/ros2-jazzy-bridge
+          if-no-files-found: error
