@@ -12,5 +12,12 @@
     "release": "v1.17.0",
     "commit": "86d8239e962f6939e05c3737784f60c02fa884db"
   },
-  "policy": "Both revisions are immutable inputs to the first pair-2 contract check. Changing either requires a new evidence run."
+  "micro_xrce_dds_agent": {
+    "repository": "eProsima/Micro-XRCE-DDS-Agent",
+    "release": "v2.4.3",
+    "commit": "73622810d984349b80bbac0ef55fc0b694d62222",
+    "transport": "udp4",
+    "port": 8888
+  },
+  "policy": "All revisions are immutable inputs to the first pair-2 runtime gate. Changing any revision requires a new evidence run."
 }
